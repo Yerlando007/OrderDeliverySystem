@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - backend
+
+  orderservice:
+    container_name: orderservice
+    build:
+      context: .
+      dockerfile: OrderService/Dockerfile
+    depends_on:
+      - postgres
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Host=postgres;Port=5432;Database=ordersdb;Username=postgres;Password=postgres
+    ports:
+      - "7001:8080"
+    networks:
+      - backend
+
+  deliveryservice:
+    container_name: deliveryservice
+    build:
+      context: .
+      dockerfile: DeliveryService/Dockerfile
+    depends_on:
+      - postgres
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Host=postgres;Port=5432;Database=deliverydb;Username=postgres;Password=postgres
+    ports:
+      - "7002:8080"
+    networks:
+      - backend
+
+  apigateway:
+    container_name: apigateway
+    build:
+      context: .
+      dockerfile: ApiGateway/Dockerfile
+    depends_on:
+      - orderservice
+      - deliveryservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "9000:8080"
+    networks:
+      - backend
+
+volumes:
+  postgres_data:
+
+networks:
+  backend:
+    driver: bridge
